@@ -106,6 +106,43 @@ function CustomMLP(;
     )
 end
 
+"""
+    infer_MLP_size(weights::NamedTuple) -> Vector{Int}
+
+Infer the MLP layer sizes from model weights.
+
+Extracts the input and output dimensions from Dense layer weights to reconstruct
+the network architecture.
+
+# Arguments
+- `weights::NamedTuple`: Model parameters containing layer weights
+
+# Returns
+- `Vector{Int}`: Layer sizes [input_size, hidden_sizes..., output_size]
+"""
+function infer_MLP_size(weights::NamedTuple)
+    layer_sizes = []
+    
+    # Iterate through the weight structure
+    for key in keys(weights)
+        if haskey(weights[key], :weight)
+            w = weights[key][:weight]
+            # weight matrix shape is (out_features, in_features)
+            out_features, in_features = size(w)
+            
+            # Add input size from first layer
+            if isempty(layer_sizes)
+                push!(layer_sizes, in_features)
+            end
+            
+            # Add output size
+            push!(layer_sizes, out_features)
+        end
+    end
+    
+    return layer_sizes
+end
+
 # Example usage:
 rng = Random.default_rng()
 nInp = 10
@@ -124,3 +161,18 @@ println("  Input features: $(custom_nn.nbFeatures)")
 println("  Layer sizes: $(custom_nn.nNeurons)")
 println("  Batch size: $(custom_nn.batch_size)")
 println("  Device: $(custom_nn.device)")
+
+# Infer network size from existing weights and create new MLP
+inferred_nNeurons = infer_MLP_size(custom_nn.params)
+println("\nInferred network sizes: $inferred_nNeurons")
+
+custom_nn_2 = CustomMLP(;
+    nbFeatures=inferred_nNeurons[1],
+    nNeurons=inferred_nNeurons,
+    batch_size=16,
+    activation=tanh,
+    device="cpu"
+)
+
+println("Created CustomMLP from inferred weights:")
+println("  Layer sizes: $(custom_nn_2.nNeurons)")
